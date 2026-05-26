@@ -1,0 +1,24 @@
+# Virtual environment
+venv/
+venv_run_analyzer/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Videos
+*.mp4
+*.avi
+*.mov
+
+# Models
+*.pt
+*.pth
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
