@@ -1,49 +1,67 @@
 import cv2
+import csv
 from ultralytics import YOLO
 
-# 1. Wczytanie modelu AI
-# Używamy wersji 'n' (nano) - yolov8n-pose.pt. Jest najszybsza do testów.
-# Przy pierwszym uruchomieniu plik modelu sam się pobierze z internetu.
+# Inicjalizacja modelu i wideo
 model = YOLO('yolov8n-pose.pt') 
-
-# 2. Wczytanie pliku wideo
-video_path = "bok.mp4" # <-- TUTAJ WPISZ NAZWĘ SWOJEGO PLIKU
+video_path = "bok.mp4" # Pamiętaj o swojej nazwie pliku
 cap = cv2.VideoCapture(video_path)
 
-# Pętla odtwarzająca wideo klatka po klatce
+# 1. Przygotowanie pliku CSV do zapisu danych
+csv_filename = 'dane_biegu.csv'
+csv_file = open(csv_filename, 'w', newline='')
+csv_writer = csv.writer(csv_file)
+
+# Zapisujemy nagłówki kolumn w pliku
+csv_writer.writerow(['Klatka', 'Biodro_X', 'Biodro_Y', 'Kolano_X', 'Kolano_Y', 'Kostka_X', 'Kostka_Y'])
+
+frame_idx = 0 # Licznik klatek
+
 while cap.isOpened():
     success, frame = cap.read()
     
     if success:
-        # 3. Przepuszczenie klatki przez model AI
-        # model zwróci obiekt 'results' ze współrzędnymi stawów
         results = model(frame)
         
-        # 4. Magia Ultralytics: gotowa funkcja plot() sama rysuje szkielet na obrazie
+        # 2. Ekstrakcja punktów (keypoints)
+        # Bierzemy dane dla pierwszej wykrytej osoby [0] i wyciągamy współrzędne XY
+        keypoints = results[0].keypoints.xy[0] 
+        
+        # Sprawdzamy, czy model wykrył jakiekolwiek punkty w danej klatce
+        if len(keypoints) > 0:
+            # Pobranie współrzędnych konkretnych stawów (format: [X, Y])
+            biodro = keypoints[12]
+            kolano = keypoints[14]
+            kostka = keypoints[16]
+            
+            # 3. Zapis do pliku CSV (rzutujemy na typ float)
+            csv_writer.writerow([
+                frame_idx,
+                float(biodro[0]), float(biodro[1]),
+                float(kolano[0]), float(kolano[1]),
+                float(kostka[0]), float(kostka[1])
+            ])
+        
+        # Rysowanie i wyświetlanie (jak poprzednio)
         annotated_frame = results[0].plot()
         
-        # Opcjonalne: Zmiana rozmiaru okna, żeby zmieściło się na monitorze
-        # Ustawiamy skalę, np. na 40% oryginalnej wielkości 
-# (możesz zmienić tę wartość na 30 lub 50, żeby dopasować do swojego monitora)
         scale_percent = 40 
-
         width = int(annotated_frame.shape[1] * scale_percent / 100)
         height = int(annotated_frame.shape[0] * scale_percent / 100)
-        dim = (width, height)
-
-# Zmiana rozmiaru z zachowaniem oryginalnych proporcji
-        annotated_frame = cv2.resize(annotated_frame, dim)
+        annotated_frame = cv2.resize(annotated_frame, (width, height))
         
-        # 5. Wyświetlenie gotowej klatki na ekranie
         cv2.imshow("Analiza techniki biegu - YOLO Pose", annotated_frame)
         
-        # Przerwij wciskając klawisz 'q' na klawiaturze
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
+            
+        frame_idx += 1 # Zwiększenie licznika klatek
     else:
-        # Pętla kończy się, gdy skończy się wideo
         break
 
-# 6. Sprzątanie i zamknięcie okien
+# Zamknięcie wideo, okien i pliku CSV
 cap.release()
 cv2.destroyAllWindows()
+csv_file.close()
+
+print(f"Gotowe! Dane zostały zapisane do pliku {csv_filename}")
